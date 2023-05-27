@@ -9,7 +9,24 @@ class JumpParams:
         self.lam = 0.
 
 class  MonteCarloJumpDiffusion:
-    def __init__(self, option="asian", sigma=0.2, jump_model="no", n_sim=10000, mult=2) -> None:
+    def __init__(self, option="asian", jump_model="no", n_sim=10000, mult=2) -> None:
+        """
+        初始化蒙特卡洛模拟的参数。
+
+        输入参数
+        ----------
+        option : str, default = "asian"
+            期权种类，option in ["asian", "eu", "american", "barrier"]。
+        
+        jump_model : str, default = "no"
+            选取跳跃模型，默认不使用，jump_model in ["no", "normal", "double", "mix"]
+        
+        n_sim : int, default = 10000
+            蒙特卡洛模拟次数。
+        
+        mult : int, default = 2
+            模拟精细程度，实际模拟步数为 n_sim * mult。
+        """
         self.price_func_dict = {
             "eu": None,
             "american": None,
@@ -19,7 +36,6 @@ class  MonteCarloJumpDiffusion:
         assert(option in self.price_func_dict)
         self.option = option
         self.price_func = self.price_func_dict[option]
-        self.sigma = sigma
         self.jump_models = [
             "no",
             "normal",
@@ -185,7 +201,56 @@ class  MonteCarloJumpDiffusion:
         
         return prices, std_errs
 
-    def price(self, S_0, r, q, T, M, Kvec=None, type="call", down=1, H=.85, rebate=0.):
+    
+    def price(self, S_0: float, r: float, q: float, T: float=1, M: int=252, sigma=0.2, Kvec=None, type:str="call", down:int=1, H:float=.85, rebate:float=0.):
+        """蒙特卡洛模拟，计算期权定价的函数。
+
+        输入参数
+        ----------
+        S_0 : float
+            标的物当前价格（例如股价、黄金现价等）。
+
+        r : float
+            无风险利率（年）。
+
+        q : float
+            股息率。
+
+        T : float, default = 1
+            期限（年），默认 T = 1，即一年期期权。
+
+        M : int, default = 252
+            交易日数，默认一年 252 天。
+        
+        sigma : float, default = 0.2
+            股票价格波动率
+
+        Kvec : list, default = None
+            默认 Kvec = [.85, .90, .95, 1, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.5, 1.6], 分别计算 S_0 * Kvec[i] 为行权价时的期权定价。
+        
+        type : str, default = "call"
+            计算看涨或看跌期权, type in ["call", "put"]。
+        
+        down : int, default = 1
+            barrier 期权的参数，down = 1 表式 down-and-out option，否则为 up-and-out option。
+        
+        H : float, default = 0.85
+            barrier 期权的参数，down-and-out 或者 up-and-out 的界。
+        
+        rebate : float, default = 0.
+            barrier 期权的参数，达到 H * S_0 时的退款。
+
+        返回值
+        -------
+        prices : ndarray of shape (len(Kvec), )
+            每个期权的定价。
+        
+        std_errs : ndarray of shape (len(Kvec), )
+            期权定价的标准差。
+        
+        simulate_path : ndarray of shape (n_sim, M + 1)
+            n 条模拟标的物价格的轨迹。
+        """
         if Kvec is None:
             Kvec = S_0 * np.array([.85, .90, .95, 1, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.5, 1.6])
         
@@ -196,7 +261,7 @@ class  MonteCarloJumpDiffusion:
                                                      S_0=S_0, 
                                                      r=r, 
                                                      q=q, 
-                                                     sigma=self.sigma, 
+                                                     sigma=sigma, 
                                                      jump_model=self.jump_model, 
                                                      jump_params=self.jump_params)
         if self.option == "asian":
