@@ -158,6 +158,25 @@ class  MonteCarloJumpDiffusion:
         
         return prices, std_errs
     
+    def __Price_MC_EU_Strikes_func(self, simulate_path, type, Kvec, M, mult, r, T):
+        prices = np.zeros(len(Kvec))
+        std_errs = np.zeros(len(Kvec))
+        n_sim = len(simulate_path)
+        disc = math.exp(-r * T)
+
+        St = simulate_path[:, mult]
+        for i in range(len(Kvec)):
+            K = Kvec[i]
+            if type == "call":
+                payoffs = np.maximum(St - K, 0)
+            else:
+                payoffs = np.maximum(K - St, 0)
+            
+            prices[i] = disc * np.mean(payoffs)
+            std_errs[i] = disc * np.std(payoffs) / math.sqrt(n_sim)
+        
+        return prices, std_errs
+    
     def __Price_MC_Barrier_Strikes_func(self, simulate_path, type, Kvec, M, mult, r, T, down, H, rebate):
         prices = np.zeros(len(Kvec))
         std_errs = np.zeros(len(Kvec))
@@ -202,7 +221,7 @@ class  MonteCarloJumpDiffusion:
         return prices, std_errs
 
     
-    def price(self, S_0: float, r: float, q: float, T: float=1, M: int=252, sigma=0.2, Kvec=None, type:str="call", down:int=1, H:float=.85, rebate:float=0.):
+    def price(self, S_0: float, r: float, q: float, T: float=1, M: int=252, sigma=0.2, Kvec=None, type:str="call", down:int=1, H:float=.85, rebate:float=0., polyOrder:int=3):
         """蒙特卡洛模拟，计算期权定价的函数。
 
         输入参数
@@ -239,6 +258,9 @@ class  MonteCarloJumpDiffusion:
         
         rebate : float, default = 0.
             barrier 期权的参数，达到 H * S_0 时的退款。
+        
+        polyOrder : int, default = 3.
+            美式期权参数，order of polynomial regression of continuation val。
 
         返回值
         -------
@@ -272,6 +294,23 @@ class  MonteCarloJumpDiffusion:
                                                                   mult=self.mult,
                                                                   r=r,
                                                                   T=T)
+        elif self.option == "eu":
+            prices, std_errs = self.__Price_MC_EU_Strikes_func(simulate_path=simulate_path, 
+                                                                  type=type, 
+                                                                  Kvec=Kvec, 
+                                                                  M=M, 
+                                                                  mult=self.mult,
+                                                                  r=r,
+                                                                  T=T)
+        elif self.option == "american":
+            prices, std_errs = self.__Price_MC_American_Strikes_func(simulate_path=simulate_path, 
+                                                                  type=type, 
+                                                                  Kvec=Kvec, 
+                                                                  M=M, 
+                                                                  mult=self.mult,
+                                                                  r=r,
+                                                                  T=T,
+                                                                  polyOrder=polyOrder)
         elif self.option == "barrier":
             prices, std_errs = self.__Price_MC_Barrier_Strikes_func(simulate_path=simulate_path, 
                                                                   type=type, 
