@@ -6,5 +6,5 @@ class MonteCarloEUJump(MonteCarloJumpDiffusion):
         
 
 __all__ = [
-    "MonteCarloAssianJump",
+    "MonteCarloEUJump",
 ]

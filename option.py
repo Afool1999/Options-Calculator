@@ -8,7 +8,7 @@ from scipy.stats import norm
 from math import log, sqrt, pi, exp
 from pandas import DataFrame
 import matplotlib.pyplot as plt
- 
+
 try:
     q = float(si.get_dividends("amzn").tail(1).iloc[0]["dividend"]) / 100
 except:
@@ -16,56 +16,68 @@ except:
 
 print(q)
 
+
 class BlackSholes:
     def __init__(self) -> None:
         pass
 
     def d1(self, S, K, T, r, sigma):
-        return(log(S / K) + (r + sigma**2 / 2.) * T) / sigma * sqrt(T)
-    
+        return (log(S / K) + (r + sigma ** 2 / 2.) * T) / sigma * sqrt(T)
+
     def d2(self, S, K, T, r, sigma):
         return self.d1(S, K, T, r, sigma) - sigma * sqrt(T)
 
     ## define the call options price function
     def bs_call(self, S, K, T, r, sigma):
         return S * norm.cdf(self.d1(S, K, T, r, sigma)) - K * exp(-r * T) * norm.cdf(self.d2(S, K, T, r, sigma))
-    
+
     ## define the put options price function
     def bs_put(self, S, K, T, r, sigma):
         return K * exp(-r * T) - S + self.bs_call(S, K, T, r, sigma)
-    
+
     ## define the Call_Greeks of an option
     def call_delta(self, S, K, T, r, sigma):
         return norm.cdf(self.d1(S, K, T, r, sigma))
-    
+
     def call_gamma(self, S, K, T, r, sigma):
-        return norm.pdf(self.d1(S, K, T, r, sigma))/(S * sigma * sqrt(T))
-    
+        return norm.pdf(self.d1(S, K, T, r, sigma)) / (S * sigma * sqrt(T))
+
     def call_vega(self, S, K, T, r, sigma):
         return 0.01 * (S * norm.pdf(self.d1(S, K, T, r, sigma)) * sqrt(T))
-    
+
     def call_theta(self, S, K, T, r, sigma):
         return 0.01 * (-(S * norm.pdf(self.d1(S, K, T, r, sigma)) * sigma) / (2 * sqrt(T)) - r * K
-         * exp(-r*T)*norm.cdf(self.d2(S, K, T, r, sigma)))
-    
+                       * exp(-r * T) * norm.cdf(self.d2(S, K, T, r, sigma)))
+
     def call_rho(self, S, K, T, r, sigma):
         return 0.01 * (K * T * exp(-r * T) * norm.cdf(self.d2(S, K, T, r, sigma)))
-    
+
     ## define the Put_Greeks of an option
     def put_delta(self, S, K, T, r, sigma):
         return -norm.cdf(-self.d1(S, K, T, r, sigma))
+
     def put_gamma(self, S, K, T, r, sigma):
-        return norm.pdf(self.d1(S, K, T, r, sigma))/(S * sigma * sqrt(T))
+        return norm.pdf(self.d1(S, K, T, r, sigma)) / (S * sigma * sqrt(T))
+
     def put_vega(self, S, K, T, r, sigma):
-        return 0.01*(S*norm.pdf(self.d1(S, K, T, r, sigma)) * sqrt(T))
+        return 0.01 * (S * norm.pdf(self.d1(S, K, T, r, sigma)) * sqrt(T))
+
     def put_theta(self, S, K, T, r, sigma):
-        return 0.01 * (-(S * norm.pdf(self.d1(S, K, T, r, sigma)) * sigma) / (2 * sqrt(T)) + r * K * exp(-r * T) * norm.cdf(-self.d2(S, K, T, r, sigma)))
+        return 0.01 * (-(S * norm.pdf(self.d1(S, K, T, r, sigma)) * sigma) / (2 * sqrt(T)) + r * K * exp(
+            -r * T) * norm.cdf(-self.d2(S, K, T, r, sigma)))
+
     def put_rho(self, S, K, T, r, sigma):
-        return 0.01*(-K*T*exp(-r*T)*norm.cdf(-self.d2(S, K, T, r, sigma)))
+        return 0.01 * (-K * T * exp(-r * T) * norm.cdf(-self.d2(S, K, T, r, sigma)))
 
     def statistics(self, S, K, T, r, sigma):
-        price_and_greeks = {'Call' : [self.bs_call(S, K, T, r, sigma), self.call_delta(S, K, T, r, sigma), self.call_gamma(S, K, T, r, sigma),self.call_vega(S, K, T, r, sigma), self.call_rho(S, K, T, r, sigma), self.call_theta(S, K, T, r, sigma)],'Put' : [self.bs_put(S, K, T, r, sigma), BS.put_delta(S, K, T, r, sigma), self.put_gamma(S, K, T, r, sigma), self.put_vega(S, K, T, r, sigma), self.put_rho(S, K, T, r, sigma), self.put_theta(S, K, T, r, sigma)]}
-        price_and_greeks_frame = DataFrame(price_and_greeks, columns=['Call','Put'], index=['Price', 'delta', 'gamma','vega','rho','theta'])
+        price_and_greeks = {'Call': [self.bs_call(S, K, T, r, sigma), self.call_delta(S, K, T, r, sigma),
+                                     self.call_gamma(S, K, T, r, sigma), self.call_vega(S, K, T, r, sigma),
+                                     self.call_rho(S, K, T, r, sigma), self.call_theta(S, K, T, r, sigma)],
+                            'Put': [self.bs_put(S, K, T, r, sigma), BS.put_delta(S, K, T, r, sigma),
+                                    self.put_gamma(S, K, T, r, sigma), self.put_vega(S, K, T, r, sigma),
+                                    self.put_rho(S, K, T, r, sigma), self.put_theta(S, K, T, r, sigma)]}
+        price_and_greeks_frame = DataFrame(price_and_greeks, columns=['Call', 'Put'],
+                                           index=['Price', 'delta', 'gamma', 'vega', 'rho', 'theta'])
         return price_and_greeks_frame
 
 
@@ -98,17 +110,19 @@ split_line("Puts")
 print(ticker_options["puts"])
 K = float(input("Input strike price: "))
 
-
 start_date = datetime.date.today() - datetime.timedelta(days=365)
 hist_data = si.get_data(ticker, start_date=start_date)
+
+
 def get_sigma(data):
     X = []
-    for i in range(len(data)-1):
-        X.append(math.log(data[i+1]) - math.log(data[i]))
+    for i in range(len(data) - 1):
+        X.append(math.log(data[i + 1]) - math.log(data[i]))
     s = np.std(X, ddof=1)
     return s * math.sqrt(252)
 
-sigma = get_sigma(hist_data['open']) 
+
+sigma = get_sigma(hist_data['open'])
 S = si.get_live_price(ticker)
 r = ak.bond_zh_us_rate(start_date=str(start_date).replace('-', ''))['美国国债收益率2年']
 r = np.nanmean(r) / 100.
@@ -119,8 +133,6 @@ BS = BlackSholes()
 sta = BS.statistics(S, K, T, r, sigma)
 split_line("Statistics of BS Model")
 print(sta)
-
-
 
 # manually set an expiration date
 # fix T and draw figure
@@ -143,13 +155,13 @@ for option in np.array(ticker_options).tolist():
 
 plt.plot(x, y_call, label='Call', color='r')
 plt.plot(x, y_put, label='Put', color='orange')
-plt.vlines(S, min(y_call[-1], y_put[0]), max(y_put[-1], y_call[0]), linestyles='-.', colors='g', label='Current Stock Price')
+plt.vlines(S, min(y_call[-1], y_put[0]), max(y_put[-1], y_call[0]), linestyles='-.', colors='g',
+           label='Current Stock Price')
 plt.xlabel('Strike Price')
 plt.ylabel('Option Price')
 plt.legend()
 plt.savefig('./fig/fig1.png')
 plt.cla()
-
 
 # fix K
 K = S

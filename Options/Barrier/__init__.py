@@ -6,5 +6,5 @@ class MonteCarloBarrierJump(MonteCarloJumpDiffusion):
         
 
 __all__ = [
-    "MonteCarloAssianJump",
+    "MonteCarloBarrierJump",
 ]

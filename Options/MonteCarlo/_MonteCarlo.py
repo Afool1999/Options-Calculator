@@ -28,7 +28,7 @@ class  MonteCarloJumpDiffusion:
             模拟精细程度，实际模拟步数为 M * mult。
         """
         self.price_func_dict = {
-            "eu": None,
+            "eu": self.__Price_MC_EU_Strikes_func,
             "american": None,
             "asian": self.__Price_MC_Asian_Strikes_func,
             "barrier": self.__Price_MC_Barrier_Strikes_func,
@@ -139,7 +139,7 @@ class  MonteCarloJumpDiffusion:
         
         return sim_path
 
-    def __Price_MC_Asian_Strikes_func(self, simulate_path, type, Kvec, M, mult, r, T):
+    def __Price_MC_Asian_Strikes_func(self, simulate_path, option_type, Kvec, M, mult, r, T):
         prices = np.zeros(len(Kvec))
         std_errs = np.zeros(len(Kvec))
         n_sim = len(simulate_path)
@@ -148,7 +148,7 @@ class  MonteCarloJumpDiffusion:
         avg = np.mean(simulate_path[:, 1::mult], axis=1)
         for i in range(len(Kvec)):
             K = Kvec[i]
-            if type == "call":
+            if option_type == "call":
                 payoffs = np.maximum(avg - K, 0)
             else:
                 payoffs = np.maximum(K - avg, 0)
@@ -158,7 +158,7 @@ class  MonteCarloJumpDiffusion:
         
         return prices, std_errs
     
-    def __Price_MC_EU_Strikes_func(self, simulate_path, type, Kvec, M, mult, r, T):
+    def __Price_MC_EU_Strikes_func(self, simulate_path, option_type, Kvec, M, mult, r, T):
         prices = np.zeros(len(Kvec))
         std_errs = np.zeros(len(Kvec))
         n_sim = len(simulate_path)
@@ -167,7 +167,7 @@ class  MonteCarloJumpDiffusion:
         St = simulate_path[:, mult]
         for i in range(len(Kvec)):
             K = Kvec[i]
-            if type == "call":
+            if option_type == "call":
                 payoffs = np.maximum(St - K, 0)
             else:
                 payoffs = np.maximum(K - St, 0)
@@ -177,7 +177,7 @@ class  MonteCarloJumpDiffusion:
         
         return prices, std_errs
     
-    def __Price_MC_Barrier_Strikes_func(self, simulate_path, type, Kvec, M, mult, r, T, down, H, rebate):
+    def __Price_MC_Barrier_Strikes_func(self, simulate_path, option_type, Kvec, M, mult, r, T, down, H, rebate):
         prices = np.zeros(len(Kvec))
         std_errs = np.zeros(len(Kvec))
         n_sim = len(simulate_path)
@@ -210,7 +210,7 @@ class  MonteCarloJumpDiffusion:
 
         for i in range(len(Kvec)):
             K = Kvec[i]
-            if type == "call":
+            if option_type == "call":
                 payoffs = np.maximum(simulate_path[:, -1] - K, 0) * (knock_time == 0) + disc_rebate
             else:
                 payoffs = np.maximum(K - simulate_path[:, -1], 0) * (knock_time == 0) + disc_rebate
@@ -220,8 +220,56 @@ class  MonteCarloJumpDiffusion:
         
         return prices, std_errs
 
+
+    def __Price_MC_American_Strike_func_Single(self, simulate_path,option_type,K,M,mult,r,T,polyOrder):
+        disc = math.exp(-r * T/M/mult)
+        n_sim= len(simulate_path)
+        time_steps = simulate_path.shape[1]-2
+        if option_type == 'call':
+            payoffs= np.maximum(simulate_path[:,-1]-K,0)
+        else:
+            payoffs = np.maximum(K-simulate_path[:,-1],0)
+        for m in range(time_steps,0,-1):
+            payoffs=payoffs*disc
+            if option_type=='call':
+                EV = np.maximum(simulate_path[:,m]-K,0)
+            else:
+                EV= np.maximum(K-simulate_path[:,m],0)
+            indices =  np.where(EV > 0)[0]
+            if indices.size==0:
+                print(m)
+                break
+            regression = np.polyfit(simulate_path[indices, m], payoffs[indices], polyOrder)
+            EHV = np.polyval(regression, simulate_path[indices, m])
+            si = len(indices)
+            for j in range(si):
+                indices_j = indices[j]
+                if EHV[j]< EV[indices_j]:
+                    payoffs[indices_j]= EV[indices_j]
+        price = np.mean(payoffs)*disc
+        std_err = disc * np.std(payoffs)/math.sqrt(n_sim)
+        return price, std_err
+
+
+    def __Price_MC_American_Strikes_func(self, simulate_path,option_type,Kvec,M,mult,r,T,polyOrder):
+        prices = np.zeros(len(Kvec))
+        std_errs = np.zeros(len(Kvec))
+        for k in range(len(Kvec)):
+            K=Kvec[k]
+            price,err = self.__Price_MC_American_Strike_func_Single(simulate_path=simulate_path,
+                                                                    option_type=option_type,
+                                                                    K=K,
+                                                                    M=M,
+                                                                    mult=mult,
+                                                                    r=r,
+                                                                    T=T,
+                                                                    polyOrder=polyOrder)
+            prices[k]=price
+            std_errs[k]=err
+        return prices,std_errs
+
     
-    def price(self, S_0: float, r: float, q: float, T: float=1, M: int=252, sigma=0.2, Kvec=None, type:str="call", down:int=1, H:float=.85, rebate:float=0., polyOrder:int=3):
+    def price(self, S_0: float, r: float, q: float, T: float=1, M: int=252, sigma=0.2, Kvec=None, option_type:str="put", down:int=1, H:float=.85, rebate:float=0., polyOrder:int=3):
         """蒙特卡洛模拟，计算期权定价的函数。
 
         输入参数
@@ -247,8 +295,8 @@ class  MonteCarloJumpDiffusion:
         Kvec : list, default = None
             默认 Kvec = [.85, .90, .95, 1, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.5, 1.6], 分别计算 S_0 * Kvec[i] 为行权价时的期权定价。
         
-        type : str, default = "call"
-            计算看涨或看跌期权, type in ["call", "put"]。
+        option_type : str, default = "call"
+            计算看涨或看跌期权, option_type in ["call", "put"]。
         
         down : int, default = 1
             barrier 期权的参数，down = 1 表式 down-and-out option，否则为 up-and-out option。
@@ -288,7 +336,7 @@ class  MonteCarloJumpDiffusion:
                                                      jump_params=self.jump_params)
         if self.option == "asian":
             prices, std_errs = self.__Price_MC_Asian_Strikes_func(simulate_path=simulate_path, 
-                                                                  type=type, 
+                                                                  option_type=option_type, 
                                                                   Kvec=Kvec, 
                                                                   M=M, 
                                                                   mult=self.mult,
@@ -296,7 +344,7 @@ class  MonteCarloJumpDiffusion:
                                                                   T=T)
         elif self.option == "eu":
             prices, std_errs = self.__Price_MC_EU_Strikes_func(simulate_path=simulate_path, 
-                                                                  type=type, 
+                                                                  option_type=option_type, 
                                                                   Kvec=Kvec, 
                                                                   M=M, 
                                                                   mult=self.mult,
@@ -304,7 +352,7 @@ class  MonteCarloJumpDiffusion:
                                                                   T=T)
         elif self.option == "american":
             prices, std_errs = self.__Price_MC_American_Strikes_func(simulate_path=simulate_path, 
-                                                                  type=type, 
+                                                                  option_type=option_type, 
                                                                   Kvec=Kvec, 
                                                                   M=M, 
                                                                   mult=self.mult,
@@ -313,7 +361,7 @@ class  MonteCarloJumpDiffusion:
                                                                   polyOrder=polyOrder)
         elif self.option == "barrier":
             prices, std_errs = self.__Price_MC_Barrier_Strikes_func(simulate_path=simulate_path, 
-                                                                  type=type, 
+                                                                  option_type=option_type, 
                                                                   Kvec=Kvec, 
                                                                   M=M, 
                                                                   mult=self.mult,
