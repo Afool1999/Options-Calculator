@@ -25,7 +25,7 @@ class  MonteCarloJumpDiffusion:
             蒙特卡洛模拟次数。
         
         mult : int, default = 2
-            模拟精细程度，实际模拟步数为 n_sim * mult。
+            模拟精细程度，实际模拟步数为 M * mult。
         """
         self.price_func_dict = {
             "eu": None,

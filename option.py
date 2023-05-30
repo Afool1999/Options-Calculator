@@ -9,6 +9,13 @@ from math import log, sqrt, pi, exp
 from pandas import DataFrame
 import matplotlib.pyplot as plt
  
+try:
+    q = float(si.get_dividends("amzn").tail(1).iloc[0]["dividend"]) / 100
+except:
+    q = 0.03
+
+print(q)
+
 class BlackSholes:
     def __init__(self) -> None:
         pass
