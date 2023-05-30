@@ -49,7 +49,7 @@ def call_iv(P, X, T, r, C):
 
         if success:
             return s
-    return 0.2
+    return 0
 
 class ParameterGen:
     def __init__(self):
@@ -73,32 +73,34 @@ class ParameterGen:
         return q
 
     def __get_implied_volatility(self):
-        ticker = yf.Ticker(self.stock)
-        if not ticker.options:
-            return 0.2
-        expirys = []
-        moneynesses = []
-        ivs = []
-        today = date.today()
-        for d in ticker.options:
-            # Find time to expiry date
-            year, month, day = d.split("-")
-            date_parsed = date(int(year), int(month), int(day))
-            T = (date_parsed - today).days / 365.0
-            if T == 0:
-                continue
-            calls = ticker.option_chain(d)[0]
-            price = float(ticker.history(d).drop_duplicates(subset=['Close'])['Close'])
-            for _, call in calls.iterrows():
-                iv = call_iv(price, call['strike'], T, self.r, call['lastPrice'])
-                moneyness = call['strike'] / price
-                # calc_iv == 0 implies that the call_iv failed to converge to a positive volatility
-                # checks for reasonable bounds on values
-                if iv != 0 and 0 < moneyness and moneyness < 2:
-                    expirys.append(T)
-                    moneynesses.append(moneyness)
-                    ivs.append(iv)
-            print(ivs)
+        try:
+            ticker = yf.Ticker(self.stock)
+            if not ticker.options:
+                return 0.2
+            expirys = []
+            moneynesses = []
+            ivs = []
+            today = date.today()
+            for d in ticker.options:
+                # Find time to expiry date
+                year, month, day = d.split("-")
+                date_parsed = date(int(year), int(month), int(day))
+                T = (date_parsed - today).days / 365.0
+                if T == 0:
+                    continue
+                calls = ticker.option_chain(d)[0]
+                price = float(ticker.history(d).drop_duplicates(subset=['Close'])['Close'])
+                for _, call in calls.iterrows():
+                    iv = call_iv(price, call['strike'], T, self.r, call['lastPrice'])
+                    moneyness = call['strike'] / price
+                    # calc_iv == 0 implies that the call_iv failed to converge to a positive volatility
+                    # checks for reasonable bounds on values
+                    if iv != 0 and 0 < moneyness and moneyness < 2:
+                        expirys.append(T)
+                        moneynesses.append(moneyness)
+                        ivs.append(iv)
+            return sum(ivs)/len(ivs)/4
+        except:
             return 0.2
     def get_para(self,stock:str):
         self.stock=stock
